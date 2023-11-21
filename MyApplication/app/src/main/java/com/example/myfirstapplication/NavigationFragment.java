@@ -5,28 +5,31 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.location.Address;
+import android.location.Criteria;
 import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.io.IOException;
 
 import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.Fragment;
 
-import java.io.IOException;
-import java.text.SimpleDateFormat;
+import java.io.FileOutputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import android.location.Criteria;
-import android.text.TextUtils;
 
+import java.io.FileInputStream;
+import java.io.ObjectInputStream;
 
 public class NavigationFragment extends Fragment {
 
@@ -36,6 +39,8 @@ public class NavigationFragment extends Fragment {
     private TextView longitudeTextView;
     private TextView addressTextView;
     private Geocoder geocoder;
+
+    private static final String LOCATION_DATA_FILE = "location_data.bin";
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -53,6 +58,9 @@ public class NavigationFragment extends Fragment {
         // Initialize LocationManager
         locationManager = (LocationManager) requireActivity().getSystemService(Context.LOCATION_SERVICE);
 
+        // Load location data if available
+        loadLocationData();
+
         // Configure location updates
         provider = getLocationProvider();
         if (provider != null) {
@@ -66,6 +74,47 @@ public class NavigationFragment extends Fragment {
     public void onDestroy() {
         super.onDestroy();
         stopLocationUpdates();
+
+        // Save location data when the fragment is destroyed
+        saveLocationData();
+    }
+
+    // Helper method to save location data
+    private void saveLocationData() {
+        LocationData locationData = new LocationData(latitudeTextView.getText().toString(),
+                longitudeTextView.getText().toString(),
+                addressTextView.getText().toString()
+        );
+
+        try (FileOutputStream fos = requireContext().openFileOutput(LOCATION_DATA_FILE, Context.MODE_PRIVATE);
+             ObjectOutputStream oos = new ObjectOutputStream(fos)) {
+
+            oos.writeObject(locationData);
+
+            Toast.makeText(requireContext(), "Location data saved", Toast.LENGTH_SHORT).show();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Helper method to load location data
+    private void loadLocationData() {
+        try (ObjectInputStream ois = new ObjectInputStream(requireContext().openFileInput(LOCATION_DATA_FILE))) {
+            LocationData locationData = (LocationData) ois.readObject();
+            updateUIFromLocationData(locationData);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Helper method to update UI from location data
+    private void updateUIFromLocationData(LocationData locationData) {
+        if (locationData != null) {
+            latitudeTextView.setText(locationData.getLatitude());
+            longitudeTextView.setText(locationData.getLongitude());
+            addressTextView.setText(locationData.getAddress());
+        }
     }
 
     // Helper method to get the best location provider
@@ -111,6 +160,13 @@ public class NavigationFragment extends Fragment {
 
     // Helper method to stop location updates
     private void stopLocationUpdates() {
+        // Remove location updates to prevent further updates
+        if (ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                && ActivityCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // Handle permissions here if not granted
+            return;
+        }
+
         LocationListener locationListener = new LocationListener() {
             @Override
             public void onLocationChanged(Location location) {
@@ -167,6 +223,34 @@ public class NavigationFragment extends Fragment {
             }
         } catch (IOException e) {
             e.printStackTrace();
+            // Handle the exception, e.g., show an error message or log the exception
+            // For example:
+            // Toast.makeText(requireContext(), "Error getting address", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // Serializable class to hold location data
+    private static class LocationData implements Serializable {
+        private final String latitude;
+        private final String longitude;
+        private final String address;
+
+        LocationData(String latitude, String longitude, String address) {
+            this.latitude = latitude;
+            this.longitude = longitude;
+            this.address = address;
+        }
+
+        public String getLatitude() {
+            return latitude;
+        }
+
+        public String getLongitude() {
+            return longitude;
+        }
+
+        public String getAddress() {
+            return address;
         }
     }
 }

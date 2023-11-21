@@ -2,7 +2,10 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="primary">#4FA4FF</color>
+    <color name="primary">#063970</color>
+    <color name="blue_f">#0be8fb</color>
     <color name="gray2">#545F6E</color>
+    <color name="rose_f">#fc24bf</color>
     <color name="gay">#4D5C69</color>
+
 </resources>
